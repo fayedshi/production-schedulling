@@ -3,14 +3,9 @@ import { createRouter, createWebHistory } from 'vue-router'
 const routes = [
   {
     path: '/',
-    redirect: '/schedule'
+    redirect: '/orders'
   },
-  {
-    path: '/schedule',
-    name: 'ScheduleDashboard',
-    component: () => import('../views/ScheduledTaskDashboard.vue'),
-    meta: { title: '生产排程' }
-  },
+  
   {
     path: '/orders',
     name: 'OrderList',
@@ -21,12 +16,18 @@ const routes = [
     path: '/production-orders',
     name: 'ProductionOrderList',
     component: () => import('../views/ProductionOrderList.vue'),
-    meta: { title: '订单生产总表' }
+    meta: { title: '生产订单总表' }
   },
   {
-    path: '/tasks/:taskNo',
+    path: '/schedule',
+    name: 'ScheduleDashboard',
+    component: () => import('../views/ScheduledTaskDashboard.vue'),
+    meta: { title: '生产任务总表' }
+  },
+  {
+    path: '/tasks/:taskNo/:editMode',
     name: 'TaskDetail',
-    component: () => import('../views/Task.vue'),
+    component: () => import('../views/TaskDetail.vue'),
     meta: { title: '任务详情' }
   },
   {

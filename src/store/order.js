@@ -790,6 +790,32 @@ export const useOrderStore = defineStore('order', () => {
     const task = (order.productionTasks || []).find(t => t.id === taskId)
     if (!task) return false
     Object.assign(task, patch)
+    task.salary = Number(task.pieceworkPrice || 0) * Number(task.planQty || 0)
+    order.updatedAt = todayString()
+    refreshOrderProgress(order)
+    return true
+  }
+
+  function updateTaskByNo(taskNo, patch) {
+    const context = findTaskContext(taskNo)
+    if (!context) return false
+    const { task, order } = context
+    const { taskNo: ignoredTaskNo, orderNo: ignoredOrderNo, id: ignoredId, parentTaskNo: ignoredParentTaskNo, ...editablePatch } = patch
+    Object.assign(task, editablePatch)
+    task.planQty = Number(task.planQty) || 0
+    task.completedQty = Number(task.completedQty) || 0
+    task.pieceworkPrice = Number(task.pieceworkPrice) || 0
+    task.ratedHours = Number(task.ratedHours) || 0
+    task.salary = task.pieceworkPrice * task.planQty
+    task.materials = (task.materials || []).map((m, idx) => ({
+      id: m.id || `${task.taskNo}-MAT-${idx + 1}`,
+      name: m.name || '',
+      specification: m.specification || '',
+      quantity: Number(m.quantity) || 0,
+      unit: m.unit || '',
+      description: m.description || '',
+      latestRequiredTime: m.latestRequiredTime || ''
+    }))
     order.updatedAt = todayString()
     refreshOrderProgress(order)
     return true
@@ -804,6 +830,17 @@ export const useOrderStore = defineStore('order', () => {
     order.productionTasks.splice(index, 1)
     order.updatedAt = todayString()
     refreshOrderProgress(order)
+    return true
+  }
+
+  function deleteTaskByNo(taskNo) {
+    const context = findTaskContext(taskNo)
+    if (!context) return false
+    const index = context.siblings.findIndex(t => t.taskNo === taskNo)
+    if (index === -1) return false
+    context.siblings.splice(index, 1)
+    context.order.updatedAt = todayString()
+    refreshOrderProgress(context.order)
     return true
   }
 
@@ -1143,7 +1180,9 @@ export const useOrderStore = defineStore('order', () => {
     splitProductionTask,
     splitTask,
     updateProductionTask,
+    updateTaskByNo,
     deleteProductionTask,
+    deleteTaskByNo,
     closeProductionOrder,
     importOrders,
     erpSync

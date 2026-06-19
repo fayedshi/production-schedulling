@@ -9,21 +9,22 @@
             <div class="brand-subtitle">Scheduling Center</div>
           </div>
         </div>
-        <el-menu
-          class="module-menu"
-          :default-active="activeMenu"
-          :default-openeds="['production-plan']"
-          router
-          background-color="#172033"
-          text-color="#c9d3e3"
-          active-text-color="#ffffff"
-        >
-          <el-menu-item index="/orders">
-            <el-icon>
-              <Tickets />
-            </el-icon>
-            <span>订单管理</span>
-          </el-menu-item>
+        <el-menu class="module-menu" :default-active="activeMenu" :default-openeds="['production-plan']" router
+          background-color="#172033" text-color="#c9d3e3" active-text-color="#ffffff">
+          <el-sub-menu>
+            <template #title>
+              <el-icon>
+                <Calendar />
+              </el-icon>
+              <span>订单管理</span>
+            </template>
+            <el-menu-item index="/orders">
+              <el-icon>
+                <Tickets />
+              </el-icon>
+              <span>订单列表</span>
+            </el-menu-item>
+          </el-sub-menu>
 
           <el-sub-menu index="production-plan">
             <template #title>
@@ -44,7 +45,7 @@
               </el-icon>
               <span>生产任务总表</span>
             </el-menu-item>
-            
+
           </el-sub-menu>
         </el-menu>
       </el-aside>

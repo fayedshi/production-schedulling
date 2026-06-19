@@ -76,12 +76,12 @@
             <el-progress :percentage="row.progress" :status="row.progress === 100 ? 'success' : ''" :stroke-width="14" />
           </template>
         </el-table-column>
-        <el-table-column prop="notes" label="备注" width="180" show-overflow-tooltip>
+        <!-- <el-table-column prop="notes" label="备注" width="180" show-overflow-tooltip>
           <template #default="{ row }">
             <span v-if="row.notes" class="notes-cell">{{ row.notes }}</span>
             <span v-else class="text-muted">-</span>
           </template>
-        </el-table-column>
+        </el-table-column> -->
         <el-table-column label="操作" width="220" fixed="right">
           <template #default="{ row }">
             <div class="action-buttons">

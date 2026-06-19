@@ -241,8 +241,8 @@
       router.push('/orders')
     }
 
-    const goToTask = (taskNo) => {
-      router.push(`/tasks/${encodeURIComponent(taskNo)}`)
+    const goToTask = (taskNo, isEdit) => {
+      router.push(`/tasks/${encodeURIComponent(taskNo)}/${isEdit}`)
     }
 
     // ========== Actions ==========
@@ -387,7 +387,7 @@
       const handler = handlers[actionKey]
       if (handler) handler()
     }
-    </script>
+</script>
 
     <template>
       <div class="detail-container" v-if="order">
@@ -395,26 +395,19 @@
         <el-card class="header-card" shadow="never">
           <div class="detail-header">
             <div class="header-left">
-              <el-button :icon="ArrowLeft" @click="goBack" text>&larr; 返回列表</el-button>
-              <h2 class="page-title">订单详情 - {{ order.orderNo }}</h2>
+              <el-button :icon="ArrowLeft" @click="goBack" text></el-button>
+              <h2 class="page-title">订单 {{ order.orderNo }}- 详情</h2>
+              <el-tag :type="statusTagType" size="large" effect="dark">{{ statusLabel }}</el-tag>
+              <el-tag :type="urgentType" v-if="urgentType == 'danger'" size="large" effect="plain">
+                {{ urgentText }}
+              </el-tag>
             </div>
             <div class="header-right" v-if="visibleActions.length > 0">
-              <el-button
-                v-for="action in visibleActions"
-                :key="action.key"
-                :type="action.type || 'default'"
-                @click="handleAction(action.key)"
-                size="default"
-              >
+              <el-button v-for="action in visibleActions" :key="action.key" :type="action.type || 'default'"
+                @click="handleAction(action.key)" size="default">
                 {{ action.label }}
               </el-button>
             </div>
-          </div>
-          <div class="status-section">
-            <el-tag :type="statusTagType" size="large" effect="dark">{{ statusLabel }}</el-tag>
-            <el-tag :type="urgentType" size="large" effect="plain">
-              {{ urgentText }}
-            </el-tag>
           </div>
         </el-card>
 
@@ -462,18 +455,8 @@
             <!-- =================== Tab 2: 生产任务信息 =================== -->
             <el-tab-pane label="生产任务信息" name="tasks">
               <div class="tab-content">
-                <el-empty
-                  v-if="!order.productionTasks || order.productionTasks.length === 0"
-                  description="暂无生产任务"
-                />
-                <el-table
-                  v-else
-                  :data="order.productionTasks"
-                  border
-                  stripe
-                  style="width: 100%"
-                  size="default"
-                >
+                <el-empty v-if="!order.productionTasks || order.productionTasks.length === 0" description="暂无生产任务" />
+                <el-table v-else :data="order.productionTasks" border stripe style="width: 100%" size="default">
                   <!-- <el-table-column type="expand" width="44">
                     <template #default="{ row }">
                       <div class="subtask-detail" v-if="row.subTasks && row.subTasks.length">
@@ -491,10 +474,10 @@
                       </div>
                       <el-empty v-else description="暂无二级任务" :image-size="60" />
                     </template>
-                  </el-table-column> -->
+</el-table-column> -->
                   <el-table-column prop="taskNo" label="任务编号" min-width="210" show-overflow-tooltip>
                     <template #default="{ row }">
-                      <el-button link type="primary" @click="goToTask(row.taskNo)">{{ row.taskNo }}</el-button>
+                      <el-button link type="primary" @click="goToTask(row.taskNo, 'false')">{{ row.taskNo }}</el-button>
                       <el-tag v-if="row.subTasks?.length" type="danger" size="small" effect="dark">子</el-tag>
                     </template>
                   </el-table-column>
@@ -523,12 +506,8 @@
                     <template #default="{ row }">
                       <div class="progress-cell">
                         <span class="progress-text">{{ completionRate(row) }}%</span>
-                        <el-progress
-                          :percentage="completionRate(row)"
-                          :stroke-width="8"
-                          :show-text="false"
-                          class="progress-bar-inline"
-                        />
+                        <el-progress :percentage="completionRate(row)" :stroke-width="8" :show-text="false"
+                          class="progress-bar-inline" />
                       </div>
                     </template>
                   </el-table-column>
@@ -577,19 +556,11 @@
             <!-- =================== Tab 3: 流转状态 =================== -->
             <el-tab-pane label="流转状态" name="flow">
               <div class="tab-content">
-                <el-empty
-                  v-if="!order.flowLogs || order.flowLogs.length === 0"
-                  description="暂无流转记录"
-                />
+                <el-empty v-if="!order.flowLogs || order.flowLogs.length === 0" description="暂无流转记录" />
                 <el-timeline v-else>
-                  <el-timeline-item
-                    v-for="log in order.flowLogs"
-                    :key="log.id"
-                    :timestamp="formatDateTime(log.createdAt)"
-                    :color="getTimelineColor(log)"
-                    placement="top"
-                    size="large"
-                  >
+                  <el-timeline-item v-for="log in order.flowLogs" :key="log.id"
+                    :timestamp="formatDateTime(log.createdAt)" :color="getTimelineColor(log)" placement="top"
+                    size="large">
                     <div class="timeline-item-content">
                       <div class="timeline-operator">{{ log.operator }}</div>
                       <div class="timeline-label">{{ log.label }}</div>
@@ -605,18 +576,10 @@
             <!-- =================== Tab 4: 辅料信息 =================== -->
             <el-tab-pane label="辅料信息" name="materials">
               <div class="tab-content">
-                <el-empty
-                  v-if="!order.auxiliaryMaterials || order.auxiliaryMaterials.length === 0"
-                  description="暂无辅料信息"
-                />
+                <el-empty v-if="!order.auxiliaryMaterials || order.auxiliaryMaterials.length === 0"
+                  description="暂无辅料信息" />
                 <template v-else>
-                  <el-table
-                    :data="order.auxiliaryMaterials"
-                    border
-                    stripe
-                    style="width: 100%"
-                    size="default"
-                  >
+                  <el-table :data="order.auxiliaryMaterials" border stripe style="width: 100%" size="default">
                     <el-table-column prop="name" label="辅料名称" min-width="140" />
                     <el-table-column prop="unit" label="单位" min-width="80" align="center" />
                     <el-table-column label="单价" min-width="120" align="right">
@@ -651,28 +614,16 @@
                 <div class="progress-section">
                   <h3 class="section-title">整体进度</h3>
                   <div class="progress-wrapper">
-                    <el-progress
-                      :percentage="order.progress || 0"
-                      :stroke-width="22"
-                      :text-inside="true"
-                      :status="order.progress === 100 ? 'success' : undefined"
-                    />
+                    <el-progress :percentage="order.progress || 0" :stroke-width="22" :text-inside="true"
+                      :status="order.progress === 100 ? 'success' : undefined" />
                   </div>
                 </div>
                 <div class="steps-section">
                   <h3 class="section-title">订单阶段</h3>
-                  <el-steps
-                    :active="stepStatusMap.active"
-                    align-center
-                    process-status="process"
-                    finish-status="success"
-                  >
-                    <el-step
-                      v-for="(step, index) in stepStatusMap.steps"
-                      :key="index"
-                      :title="step.title"
-                      :status="step.status"
-                    />
+                  <el-steps :active="stepStatusMap.active" align-center process-status="process"
+                    finish-status="success">
+                    <el-step v-for="(step, index) in stepStatusMap.steps" :key="index" :title="step.title"
+                      :status="step.status" />
                   </el-steps>
                 </div>
               </div>
@@ -692,184 +643,184 @@
       </div>
     </template>
 
-    <style scoped>
-    /* ===== Layout ===== */
-    .detail-container {
-      padding: 20px;
-    }
+<style scoped>
+/* ===== Layout ===== */
+.detail-container {
+  padding: 20px;
+}
 
-    .empty-container {
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      min-height: 400px;
-    }
+.empty-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 400px;
+}
 
-    .header-card {
-      margin-bottom: 16px;
-    }
+.header-card {
+  margin-bottom: 16px;
+}
 
-    .tabs-card {
-      margin-top: 16px;
-    }
+.tabs-card {
+  margin-top: 16px;
+}
 
-    /* ===== Header ===== */
-    .detail-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      flex-wrap: wrap;
-      gap: 12px;
-    }
+/* ===== Header ===== */
+.detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
 
-    .header-left {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
 
-    .page-title {
-      margin: 0;
-      font-size: 18px;
-      font-weight: 600;
-      color: #303133;
-    }
+.page-title {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+  color: #303133;
+}
 
-    .header-right {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      flex-wrap: wrap;
-    }
+.header-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
 
-    /* ===== Status Section ===== */
-    .status-section {
-      margin-top: 16px;
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
+/* ===== Status Section ===== */
+.status-section {
+  margin-top: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
-    /* ===== Tab Content ===== */
-    .tab-content {
-      padding: 8px 0;
-    }
+/* ===== Tab Content ===== */
+.tab-content {
+  padding: 8px 0;
+}
 
-    .desc-label {
-      font-weight: 600;
-    }
+.desc-label {
+  font-weight: 600;
+}
 
-    .notes-text {
-      white-space: pre-wrap;
-      word-break: break-word;
-      line-height: 1.6;
-      color: #303133;
-    }
+.notes-text {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.6;
+  color: #303133;
+}
 
-    /* ===== Production Tasks ===== */
-    .subtask-detail {
-      padding: 10px 18px 14px;
-      background: #fafafa;
-    }
+/* ===== Production Tasks ===== */
+.subtask-detail {
+  padding: 10px 18px 14px;
+  background: #fafafa;
+}
 
-    .subtask-title {
-      font-weight: 700;
-      color: #303133;
-      margin-bottom: 8px;
-    }
+.subtask-title {
+  font-weight: 700;
+  color: #303133;
+  margin-bottom: 8px;
+}
 
-    .progress-cell {
-      display: flex;
-      align-items: center;
-    }
+.progress-cell {
+  display: flex;
+  align-items: center;
+}
 
-    .progress-text {
-      font-size: 13px;
-      color: #606266;
-      width: 38px;
-      text-align: right;
-      flex-shrink: 0;
-    }
+.progress-text {
+  font-size: 13px;
+  color: #606266;
+  width: 38px;
+  text-align: right;
+  flex-shrink: 0;
+}
 
-    .progress-bar-inline {
-      flex: 1;
-      margin-left: 8px;
-      min-width: 80px;
-    }
+.progress-bar-inline {
+  flex: 1;
+  margin-left: 8px;
+  min-width: 80px;
+}
 
-    /* ===== Timeline ===== */
-    .timeline-item-content {
-      padding-bottom: 8px;
-    }
+/* ===== Timeline ===== */
+.timeline-item-content {
+  padding-bottom: 8px;
+}
 
-    .timeline-operator {
-      font-weight: 600;
-      color: #303133;
-      margin-bottom: 2px;
-      font-size: 14px;
-    }
+.timeline-operator {
+  font-weight: 600;
+  color: #303133;
+  margin-bottom: 2px;
+  font-size: 14px;
+}
 
-    .timeline-label {
-      color: #606266;
-      font-size: 14px;
-      margin-bottom: 4px;
-    }
+.timeline-label {
+  color: #606266;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
 
-    .timeline-remark {
-      color: #909399;
-      font-size: 13px;
-      margin-top: 4px;
-      line-height: 1.4;
-    }
+.timeline-remark {
+  color: #909399;
+  font-size: 13px;
+  margin-top: 4px;
+  line-height: 1.4;
+}
 
-    /* ===== Auxiliary Materials ===== */
-    .material-total {
-      display: flex;
-      justify-content: flex-end;
-      align-items: center;
-      padding: 12px 16px;
-      background-color: #f5f7fa;
-      border: 1px solid #ebeef5;
-      border-top: none;
-      font-size: 14px;
-    }
+/* ===== Auxiliary Materials ===== */
+.material-total {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  padding: 12px 16px;
+  background-color: #f5f7fa;
+  border: 1px solid #ebeef5;
+  border-top: none;
+  font-size: 14px;
+}
 
-    .material-total-label {
-      color: #606266;
-      font-weight: 600;
-    }
+.material-total-label {
+  color: #606266;
+  font-weight: 600;
+}
 
-    .material-total-value {
-      color: #F56C6C;
-      font-weight: 700;
-      font-size: 16px;
-      margin-left: 8px;
-    }
+.material-total-value {
+  color: #F56C6C;
+  font-weight: 700;
+  font-size: 16px;
+  margin-left: 8px;
+}
 
-    /* ===== Progress & Steps ===== */
-    .progress-tab-content {
-      padding: 24px 0;
-    }
+/* ===== Progress & Steps ===== */
+.progress-tab-content {
+  padding: 24px 0;
+}
 
-    .progress-section {
-      margin-bottom: 40px;
-    }
+.progress-section {
+  margin-bottom: 40px;
+}
 
-    .section-title {
-      font-size: 16px;
-      font-weight: 600;
-      color: #303133;
-      margin: 0 0 24px 0;
-      text-align: center;
-    }
+.section-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: #303133;
+  margin: 0 0 24px 0;
+  text-align: center;
+}
 
-    .progress-wrapper {
-      max-width: 500px;
-      margin: 0 auto;
-    }
+.progress-wrapper {
+  max-width: 500px;
+  margin: 0 auto;
+}
 
-    .steps-section {
-      max-width: 800px;
-      margin: 0 auto;
-    }
-    </style>
+.steps-section {
+  max-width: 800px;
+  margin: 0 auto;
+}
+</style>
