@@ -27,8 +27,8 @@
     </el-card>
 
     <el-card class="table-card" shadow="never">
-      <el-table :data="paginatedOrders" stripe border style="width: 100%" row-key="id">
-        <el-table-column prop="orderNo" label="订单号" width="160" fixed />
+      <el-table :data="paginatedOrders" stripe border style="width: 100%" row-key="id" >
+        <el-table-column prop="orderNo" label="订单号" width="180" fixed sortable/>
         <el-table-column prop="customerLevel" label="客户等级" width="100">
           <template #default="{ row }">
             <el-tag :type="customerLevelTagType(row.customerLevel)" size="small">{{ row.customerLevel }}</el-tag>
@@ -119,7 +119,7 @@ const splitDefaults = computed(() => {
 const splitContextTitle = computed(() => {
   if (!selectedOrder.value) return ''
   const order = selectedOrder.value
-  return `${order.orderNo} · ${order.productName} · 订单数量 ${order.quantity} ${order.unit}`
+  return '当前订单 '+`${order.orderNo} · ${order.productName} · 订单零件数量 ${order.quantity} ${order.unit}`
 })
 
 const filteredOrders = computed(() => {

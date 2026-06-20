@@ -6,17 +6,29 @@
           <template #header>
             <div class="panel-header">
               <span>生产任务总表</span>
-              <el-tag type="info" effect="plain">{{ scheduleTasks.length }} 项任务</el-tag>
+              <el-tag type="info" effect="plain">{{ visibleScheduleTasks.length }} 项任务</el-tag>
             </div>
           </template>
-          <el-table :data="scheduleTasks" border stripe height="430" empty-text="暂无生产任务">
-            <el-table-column prop="taskNo" label="任务编号" min-width="180" show-overflow-tooltip>
+          <el-table :data="visibleScheduleTasks" row-key="taskNo" border stripe height="500" empty-text="暂无生产任务">
+            <el-table-column prop="taskNo" label="任务编号" min-width="260" show-overflow-tooltip>
               <template #default="{ row }">
-                <el-button link type="primary" @click="goToTask(row.taskNo,'false')">{{ row.taskNo }}</el-button>
-                <el-tag v-if="row.subTasks?.length" type="danger" size="small" effect="dark">子</el-tag>
+                <div class="task-no-cell" :style="{ paddingLeft: `${row.__depth * 24}px` }">
+                  <el-button v-if="row.subTasks?.length" class="expand-button" text @click="toggleTask(row.taskNo)">
+                    {{ expandedTaskNos.has(row.taskNo) ? '-' : '+' }}
+                  </el-button>
+                  <span v-else class="expand-placeholder"></span>
+                  <el-button link type="primary" class="task-no-button" @click="goToTask(row.taskNo,'false')">{{ row.taskNo }}</el-button>
+                  <span v-if="row.__depth > 0" class="task-inline-mark">{{ taskMark(row) }}</span>
+                </div>
               </template>
             </el-table-column>
-            <el-table-column prop="orderNo" label="订单号" min-width="145" show-overflow-tooltip />
+            <el-table-column prop="orderNo" label="订单号" min-width="145" show-overflow-tooltip sortable/>
+            <el-table-column label="类型" width="90" align="center">
+              <template #default="{ row }">{{ (row.taskType || 'normal') === 'normal' ? '普通' : '子任务' }}</template>
+            </el-table-column>
+            <el-table-column label="层级" width="70" align="center">
+              <template #default="{ row }">{{ (row.taskType || 'normal') === 'normal' ? row.taskLevel || 1 : '-' }}</template>
+            </el-table-column>
             <el-table-column prop="processName" label="工序" width="80" />
             <el-table-column prop="workCenter" label="车间" width="90" />
             <el-table-column prop="planQty" label="数量" width="80" align="right" />
@@ -102,19 +114,43 @@
 <script setup>
 import { computed, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { ElMessage, ElMessageBox } from 'element-plus'
-import { useOrderStore, units } from '../store/order'
-import { fa } from 'element-plus/es/locales.mjs'
+import { ElMessage } from 'element-plus'
+import { useOrderStore } from '../store/order'
 import useCommonFunction from '../hooks/useCommonFunction'
 
 const router = useRouter()
 const store = useOrderStore()
 const scheduleTasks = computed(() => store.scheduleTasks)
+const expandedTaskNos = reactive(new Set())
 const editDialogVisible = ref(false)
 const taskStatuses = ['待排产', '已排产', '生产中', '已完工', '已质检']
 const { handleDelete } = useCommonFunction();
 
+const visibleScheduleTasks = computed(() => {
+  const rows = []
+  scheduleTasks.value.forEach(task => appendVisibleTask(rows, task, 0))
+  return rows
+})
+
 const editForm = reactive(initialEditForm())
+
+function appendVisibleTask(rows, task, depth) {
+  rows.push({ ...task, __depth: depth })
+  if (!expandedTaskNos.has(task.taskNo)) return
+  ;(task.subTasks || []).forEach(child => appendVisibleTask(rows, child, depth + 1))
+}
+
+function toggleTask(taskNo) {
+  if (expandedTaskNos.has(taskNo)) {
+    expandedTaskNos.delete(taskNo)
+  } else {
+    expandedTaskNos.add(taskNo)
+  }
+}
+
+function taskMark(row) {
+  return (row.taskType || 'normal') === 'normal' ? `第 ${row.taskLevel || row.__depth + 1} 级` : '子任务'
+}
 
 function initialEditForm() {
   return {
@@ -228,6 +264,11 @@ function goToTask(taskNo,boolVal) {
 .panel-header { display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: #303133; }
 .section-title { font-weight: 700; color: #303133; margin: 12px 0 8px; }
 .add-material-btn { margin-top: 10px; }
+.task-no-cell { display: inline-flex; align-items: baseline; min-width: 0; }
+.expand-button { width: 14px; height: 20px; color:red; min-height: 20px; padding: 0; margin-right: 1px; font-size: 14px; font-weight: 700; vertical-align: baseline; }
+.expand-placeholder { width: 15px; flex: 0 0 15px; }
+.task-no-button { padding: 0; font-size: 14px; vertical-align: baseline; }
+.task-inline-mark { margin-left: 4px; color: red; font-size: 7px; line-height: 1; vertical-align: baseline; }
 @media (max-width: 900px) {
   .page-header { align-items: flex-start; flex-direction: column; }
 }

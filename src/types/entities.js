@@ -53,6 +53,8 @@
  * @property {string} taskNo
  * @property {string=} orderNo
  * @property {string=} parentTaskNo
+ * @property {'normal' | 'sub'} taskType
+ * @property {number=} taskLevel
  * @property {string} processName
  * @property {number} processPriority
  * @property {string} workCenter

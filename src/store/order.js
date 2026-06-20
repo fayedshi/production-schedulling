@@ -80,7 +80,7 @@ const machines = ['CNC-01', 'CNC-02', 'LASER-01', 'PRESS-01', 'ASM-01', 'QC-01']
 const machineRules = ['一人一机', '一人多机', '多人一机']
 
 // 辅料信息
-const auxiliaryMaterialsPool = [
+export const materialOptions = [
   { name: '包装膜', unit: '卷', unitPrice: 15.00 },
   { name: '木托盘', unit: '个', unitPrice: 45.00 },
   { name: '打包带', unit: '卷', unitPrice: 8.00 },
@@ -151,7 +151,7 @@ function createChildTaskNo(parentTask, index) {
 function generateTaskMaterials(taskNo, planQty) {
   const count = seededInt(`${taskNo}-material-count`, 1, 3)
   const materials = []
-  const pool = [...auxiliaryMaterialsPool]
+  const pool = [...materialOptions]
   for (let i = 0; i < count; i++) {
     const idx = seededInt(`${taskNo}-material-${i}`, 0, pool.length - 1)
     const material = pool.splice(idx, 1)[0]
@@ -184,6 +184,8 @@ function generateProductionTasks(orderNo) {
     tasks.push({
       id: `TASK-${taskNo}`,
       taskNo,
+      taskType: 'normal',
+      taskLevel: 1,
       parentTaskNo: '',
       processName,
       processPriority: i + 1,
@@ -215,7 +217,7 @@ function generateProductionTasks(orderNo) {
 function generateAuxiliaryMaterials(orderNo = 'ORDER') {
   const count = seededInt(`${orderNo}-aux-count`, 0, 4)
   const materials = []
-  const pool = [...auxiliaryMaterialsPool]
+  const pool = [...materialOptions]
   for (let i = 0; i < count; i++) {
     const idx = seededInt(`${orderNo}-aux-${i}`, 0, pool.length - 1)
     const m = pool.splice(idx, 1)[0]
@@ -448,11 +450,14 @@ export const useOrderStore = defineStore('order', () => {
   function normalizeTaskPayload(order, payload, parentTask = null) {
     const taskNo = payload.taskNo || (parentTask ? createChildTaskNo(parentTask, parentTask.subTasks?.length || 0) : createRootTaskNo(order))
     const qty = Number(payload.planQty) || 0
+    const taskType = payload.taskType || 'normal'
     const priorityFallback = parentTask ? (parentTask.subTasks?.length || 0) + 1 : (order.productionTasks?.length || 0) + 1
     return {
       id: payload.id || `TASK-${taskNo}`,
       taskNo,
       orderNo: order.orderNo,
+      taskType,
+      taskLevel: taskType === 'normal' ? Number(payload.taskLevel || parentTask?.taskLevel + 1 || 1) : undefined,
       parentTaskNo: parentTask?.taskNo || payload.parentTaskNo || '',
       processName: payload.processName || parentTask?.processName || '下料',
       processPriority: Number(payload.processPriority) || priorityFallback,
@@ -515,6 +520,33 @@ export const useOrderStore = defineStore('order', () => {
     if (order.progress > 30 && order.status === 'approved') {
       order.status = 'in_production'
     }
+  }
+
+  function splitItemsFromPayload(source, payload) {
+    if (payload.splitItems?.length) {
+      return payload.splitItems.map(item => ({
+        planQty: Number(item.planQty) || 0,
+        materials: (item.materials || []).map(m => ({ ...m }))
+      })).filter(item => item.planQty > 0)
+    }
+    const qtyList = buildSplitQuantities(source, payload.splitMode || 'average', payload.splitCount || 2, payload.subTaskQuantities || [])
+    return qtyList.map(qty => ({
+      planQty: qty,
+      materials: (payload.materials || []).map(m => ({ ...m }))
+    }))
+  }
+
+  function createSplitTasks(order, parentTask, payload, taskType, taskLevel) {
+    const targetList = parentTask ? (parentTask.subTasks = parentTask.subTasks || []) : (order.productionTasks = order.productionTasks || [])
+    return splitItemsFromPayload(parentTask || { planQty: order.quantity }, payload).map((item, index) => normalizeTaskPayload(order, {
+      ...payload,
+      id: '',
+      taskNo: parentTask ? createChildTaskNo(parentTask, targetList.length + index) : `SC-${order.orderNo}-${String(targetList.length + index).padStart(3, '0')}`,
+      planQty: item.planQty,
+      materials: item.materials,
+      taskType,
+      taskLevel
+    }, parentTask))
   }
 
   // 新增订单
@@ -743,44 +775,42 @@ export const useOrderStore = defineStore('order', () => {
     return true
   }
 
-  // 拆解生产订单为一级任务
+  // 拆解生产订单为一级普通任务
   function splitProductionTask(orderId, payload) {
     const order = orders.value.find(o => o.id === orderId)
     if (!order) throw new Error('订单不存在')
-    const task = normalizeTaskPayload(order, payload)
-    if (task.planQty > Number(order.quantity || 0)) {
+    const tasks = createSplitTasks(order, null, payload, 'normal', 1)
+    const total = tasks.reduce((sum, task) => sum + Number(task.planQty || 0), 0)
+    if (total > Number(order.quantity || 0)) {
       throw new Error('生产任务数量不能大于订单数量')
     }
-    const index = (order.productionTasks || []).findIndex(t => t.id === payload.id || t.taskNo === payload.taskNo)
-    if (index >= 0) {
-      order.productionTasks.splice(index, 1, task)
-    } else {
-      order.productionTasks.push(task)
-    }
+    order.productionTasks.push(...tasks)
     order.updatedAt = todayString()
     refreshOrderProgress(order)
-    return task
+    return tasks
   }
 
-  // 拆解任务为直接子任务
+  function splitNormalTask(taskNo, payload) {
+    const context = findTaskContext(taskNo)
+    if (!context) throw new Error('任务不存在')
+    const { task: parentTask, order } = context
+    if (parentTask.taskType === 'sub') throw new Error('子任务不能继续拆解')
+    const tasks = createSplitTasks(order, parentTask, payload, 'normal', Number(parentTask.taskLevel || 1) + 1)
+    parentTask.subTasks.push(...tasks)
+    order.updatedAt = todayString()
+    return tasks
+  }
+
+  // 拆解普通任务为子任务
   function splitTask(taskNo, payload) {
     const context = findTaskContext(taskNo)
     if (!context) throw new Error('任务不存在')
     const { task: parentTask, order } = context
-    const qtyList = buildSplitQuantities(parentTask, payload.splitMode || 'average', payload.splitCount || 2, payload.subTaskQuantities || [])
-    parentTask.subTasks = parentTask.subTasks || []
-
-    const newTasks = qtyList.map((qty, index) => normalizeTaskPayload(order, {
-      ...payload,
-      id: '',
-      taskNo: createChildTaskNo(parentTask, parentTask.subTasks.length + index),
-      planQty: qty,
-      materials: (payload.materials || []).map(m => ({ ...m }))
-    }, parentTask))
-
-    parentTask.subTasks.push(...newTasks)
+    if (parentTask.taskType === 'sub') throw new Error('子任务不能继续拆解')
+    const tasks = createSplitTasks(order, parentTask, payload, 'sub', undefined)
+    parentTask.subTasks.push(...tasks)
     order.updatedAt = todayString()
-    return newTasks
+    return tasks
   }
 
   // 修改生产任务
@@ -1143,6 +1173,7 @@ export const useOrderStore = defineStore('order', () => {
   })
 
   return {
+    materialOptions,
     processNames,
     workCenters,
     machines,
@@ -1178,6 +1209,7 @@ export const useOrderStore = defineStore('order', () => {
     resumeOrder,
     returnOrder,
     splitProductionTask,
+    splitNormalTask,
     splitTask,
     updateProductionTask,
     updateTaskByNo,

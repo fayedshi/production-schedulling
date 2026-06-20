@@ -457,28 +457,11 @@
               <div class="tab-content">
                 <el-empty v-if="!order.productionTasks || order.productionTasks.length === 0" description="暂无生产任务" />
                 <el-table v-else :data="order.productionTasks" border stripe style="width: 100%" size="default">
-                  <!-- <el-table-column type="expand" width="44">
-                    <template #default="{ row }">
-                      <div class="subtask-detail" v-if="row.subTasks && row.subTasks.length">
-                        <div class="subtask-title">二级任务</div>
-                        <el-table :data="row.subTasks" border size="small">
-                          <el-table-column prop="taskNo" label="二级任务号" min-width="150" />
-                          <el-table-column prop="processName" label="工序" min-width="90" />
-                          <el-table-column prop="quantity" label="数量" min-width="80" align="center" />
-                          <el-table-column prop="unit" label="单位" min-width="70" align="center" />
-                          <el-table-column prop="latestFinishTime" label="最晚完工" min-width="120" align="center" />
-                          <el-table-column prop="machine" label="机台" min-width="100" align="center" />
-                          <el-table-column prop="machineRule" label="机台原则" min-width="110" align="center" />
-                          <el-table-column prop="status" label="状态" min-width="90" align="center" />
-                        </el-table>
-                      </div>
-                      <el-empty v-else description="暂无二级任务" :image-size="60" />
-                    </template>
-</el-table-column> -->
+                
                   <el-table-column prop="taskNo" label="任务编号" min-width="210" show-overflow-tooltip>
                     <template #default="{ row }">
                       <el-button link type="primary" @click="goToTask(row.taskNo, 'false')">{{ row.taskNo }}</el-button>
-                      <el-tag v-if="row.subTasks?.length" type="danger" size="small" effect="dark">子</el-tag>
+                      <!-- <el-tag v-if="row.subTasks?.length" type="danger" size="small" effect="dark">子</el-tag> -->
                     </template>
                   </el-table-column>
                   <el-table-column prop="processName" label="工序" min-width="100" />

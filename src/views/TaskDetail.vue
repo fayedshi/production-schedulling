@@ -1,5 +1,5 @@
 <script setup>
-import { computed, onMounted, onUpdated, reactive, ref } from 'vue'
+import { computed, onMounted, reactive, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { ElMessage } from 'element-plus'
 import { ArrowLeft, Tickets } from '@element-plus/icons-vue'
@@ -16,6 +16,7 @@ const store = useOrderStore()
 const task = computed(() => store.getTaskByNo(decodeURIComponent(route.params.taskNo || '')))
 
 const splitDialogVisible = ref(false)
+const normalSplitDialogVisible = ref(false)
 const editMode = ref(route.params.editMode === 'true')
 const activeTab=ref("taskInfo");
 // console.log("editMode 真实类型与值:", editMode.value, typeof editMode.value)
@@ -24,9 +25,18 @@ const editForm = reactive(initialEditForm())
 const taskStatuses = ['待排产', '已排产', '生产中', '已完工', '已质检']
 
 const splitDefaults = computed(() => task.value ? buildSplitDefaults(task.value) : {})
-const splitContextTitle = computed(() => task.value ? `${task.value.taskNo} · ${task.value.processName} · 当前任务数量 ${task.value.planQty} ${task.value.unit}` : '')
+const normalSplitDefaults = computed(() => task.value ? buildSplitDefaults(task.value) : {})
+const splitContextTitle = computed(() => task.value ? '当前任务 '+`${task.value.taskNo} · ${task.value.processName} · 当前任务零件数量 ${task.value.planQty} ${task.value.unit}` : '')
+const isNormalTask = computed(() => !task.value || (task.value.taskType || 'normal') === 'normal')
+const childTasks = computed(() => task.value?.subTasks || [])
+const subTasks = computed(() => childTasks.value.filter(item => (item.taskType || 'normal') === 'sub'))
+const nextLevelTasks = computed(() => childTasks.value.filter(item => (item.taskType || 'normal') === 'normal'))
+const nextLevelLabel = computed(() => `${Number(task.value?.taskLevel || 1) + 1} 级任务`)
 const { handleDelete } = useCommonFunction();
 
+onMounted(()=>{
+  console.log(task.taskLevel);
+})
 function initialEditForm() {
   return {
     taskNo: task.value.taskNo || '',
@@ -108,18 +118,34 @@ function goToTask(taskNo, isEdit) {
 }
 
 function openSplitDialog() {
-  if (!task.value) return
+  if (!task.value || !isNormalTask.value) return
   splitDialogVisible.value = true
+}
+
+function openNormalSplitDialog() {
+  if (!task.value || !isNormalTask.value) return
+  normalSplitDialogVisible.value = true
 }
 
 function submitSplit(formData) {
   if (!task.value) return
   try {
     store.splitTask(task.value.taskNo, formData)
-    ElMessage.success('子任务拆解成功')
+    ElMessage.success('子任务拆分成功')
     splitDialogVisible.value = false
   } catch (e) {
-    ElMessage.error(e.message || '拆解失败')
+    ElMessage.error(e.message || '拆分失败')
+  }
+}
+
+function submitNormalSplit(formData) {
+  if (!task.value) return
+  try {
+    store.splitNormalTask(task.value.taskNo, formData)
+    ElMessage.success('普通任务拆分成功')
+    normalSplitDialogVisible.value = false
+  } catch (e) {
+    ElMessage.error(e.message || '拆分失败')
   }
 }
 
@@ -205,6 +231,8 @@ function saveTask() {
             <!-- <p class="page-subtitle">Task Detail · {{ task.orderNo }} · {{ task.productName }}</p> -->
             <el-tag :type="taskStatusTagType(editMode ? editForm.status : task.status)" size="large">{{ editMode ?
               editForm.status : task.status }}</el-tag>
+            <el-tag v-if="isNormalTask" type="success" size="large">第 {{ task.taskLevel || 1 }} 级普通任务</el-tag>
+            <el-tag v-else type="info" size="large">子任务</el-tag>
           </p>
         </div>
         <div class="header-actions">
@@ -215,7 +243,8 @@ function saveTask() {
           </template>
           <template v-else>
             <el-button type="warning" @click="startEdit">修改</el-button>
-            <el-button type="warning" plain @click="openSplitDialog">拆解任务</el-button>
+            <el-button v-if="isNormalTask" type="warning" plain @click="openNormalSplitDialog">拆分{{ (task.taskLevel || 1) +1 }}级任务</el-button>
+            <el-button v-if="isNormalTask" type="warning" plain @click="openSplitDialog">拆分子任务</el-button>
             <el-button type="primary" @click="goToOrder">
               <el-icon>
                 <Tickets />
@@ -297,6 +326,8 @@ function saveTask() {
             <el-descriptions class="task-descriptions" :column="2" border>
               <el-descriptions-item label="任务号">{{ task.taskNo }}</el-descriptions-item>
               <el-descriptions-item label="订单号">{{ task.orderNo }}</el-descriptions-item>
+              <el-descriptions-item label="任务类型">{{ isNormalTask ? '普通任务' : '子任务' }}</el-descriptions-item>
+              <el-descriptions-item label="任务层级">{{ isNormalTask ? `第 ${task.taskLevel || 1} 级` : '-' }}</el-descriptions-item>
               <el-descriptions-item label="工序">{{ task.processName }}</el-descriptions-item>
               <el-descriptions-item label="工序优先顺序">{{ task.processPriority }}</el-descriptions-item>
               <el-descriptions-item label="数量">{{ formatNumber(task.planQty) }}</el-descriptions-item>
@@ -330,7 +361,7 @@ function saveTask() {
           </template>
         </el-tab-pane>
 
-        <el-tab-pane label="材辅料信息">
+        <el-tab-pane label="材辅料信息" name="materials">
           <template v-if="editMode">
             <el-table :data="editForm.materials" border size="small">
               <el-table-column label="材辅料名称" min-width="130"><template #default="{ row }"><el-input
@@ -367,9 +398,9 @@ function saveTask() {
           </template>
         </el-tab-pane>
 
-        <el-tab-pane :label="`子任务 (${task.subTasks?.length || 0})`">
-          <el-empty v-if="!task.subTasks || task.subTasks.length === 0" description="暂无子任务" />
-          <el-table v-else :data="task.subTasks" border stripe>
+        <el-tab-pane v-if=isNormalTask :label="`子任务 (${subTasks.length})`"   name="subTasks">
+          <el-empty v-if="subTasks.length === 0" description="暂无子任务" />
+          <el-table v-else :data="subTasks" border stripe>
             <el-table-column prop="taskNo" label="任务编号" min-width="190" show-overflow-tooltip>
               <template #default="{ row }">
                 <el-button link type="primary" @click="goToTask(row.taskNo, 'false')">{{ row.taskNo }}</el-button>
@@ -377,6 +408,51 @@ function saveTask() {
               </template>
             </el-table-column>
             <el-table-column prop="processName" label="工序" width="100" />
+            <el-table-column label="类型" width="100" align="center">
+              <template #default="{ row }">{{ (row.taskType || 'normal') === 'normal' ? '普通任务' : '子任务' }}</template>
+            </el-table-column>
+            <el-table-column label="层级" width="80" align="center">
+              <template #default="{ row }">{{ (row.taskType || 'normal') === 'normal' ? row.taskLevel || '-' : '-' }}</template>
+            </el-table-column>
+            <el-table-column prop="processPriority" label="优先顺序" width="100" align="center" />
+            <el-table-column prop="planQty" label="数量" width="100" align="right">
+              <template #default="{ row }">{{ formatNumber(row.planQty) }}</template>
+            </el-table-column>
+            <el-table-column prop="unit" label="单位" width="70" />
+            <el-table-column prop="machine" label="机台" width="100" />
+            <el-table-column prop="machineRule" label="机台原则" width="120" />
+            <el-table-column prop="latestOnlineTime" label="最晚上线" width="120" />
+            <el-table-column prop="latestFinishTime" label="最晚完工" width="120" />
+            <el-table-column label="状态" width="100" align="center">
+              <template #default="{ row }">
+                <el-tag :type="taskStatusTagType(row.status)" size="small">{{ row.status }}</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column label="" width="70" fixed="right">
+              <template #default="{ row }">
+
+                <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
+              </template>
+            </el-table-column>
+          </el-table>
+        </el-tab-pane>
+
+        <el-tab-pane v-if=isNormalTask :label="`${nextLevelLabel} (${nextLevelTasks.length})`" name="nextLevelTasks">
+          <el-empty v-if="nextLevelTasks.length === 0" :description="`暂无${nextLevelLabel}`" />
+          <el-table v-else :data="nextLevelTasks" border stripe>
+            <el-table-column prop="taskNo" label="任务编号" min-width="190" show-overflow-tooltip>
+              <template #default="{ row }">
+                <el-button link type="primary" @click="goToTask(row.taskNo, 'false')">{{ row.taskNo }}</el-button>
+                <el-tag v-if="row.subTasks?.length" type="danger" size="small" effect="dark">子</el-tag>
+              </template>
+            </el-table-column>
+            <el-table-column prop="processName" label="工序" width="100" />
+            <el-table-column label="类型" width="100" align="center">
+              <template #default="{ row }">{{ (row.taskType || 'normal') === 'normal' ? '普通任务' : '子任务' }}</template>
+            </el-table-column>
+            <el-table-column label="层级" width="80" align="center">
+              <template #default="{ row }">{{ (row.taskType || 'normal') === 'normal' ? row.taskLevel || '-' : '-' }}</template>
+            </el-table-column>
             <el-table-column prop="processPriority" label="优先顺序" width="100" align="center" />
             <el-table-column prop="planQty" label="数量" width="100" align="right">
               <template #default="{ row }">{{ formatNumber(row.planQty) }}</template>
@@ -408,9 +484,12 @@ function saveTask() {
       </el-empty>
     </el-card>
 
-    <TaskSplitDialog v-model="splitDialogVisible" title="拆解任务" :context-title="splitContextTitle"
+    <TaskSplitDialog v-model="splitDialogVisible" title="拆分子任务" :context-title="splitContextTitle"
       :defaults="splitDefaults" :process-names="store.processNames" :machines="store.machines"
-      :machine-rules="store.machineRules" @submit="submitSplit" />
+      :machine-rules="store.machineRules" :material-options="store.materialOptions" @submit="submitSplit" />
+    <TaskSplitDialog v-model="normalSplitDialogVisible" title="拆分普通任务" :context-title="splitContextTitle"
+      :defaults="normalSplitDefaults" :process-names="store.processNames" :machines="store.machines"
+      :machine-rules="store.machineRules" :material-options="store.materialOptions" disable-average @submit="submitNormalSplit" />
   </div>
 </template>
 
