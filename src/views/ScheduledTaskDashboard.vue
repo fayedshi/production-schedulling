@@ -1,15 +1,27 @@
 <template>
   <div class="schedule-page">
+    <el-card class="search-card" shadow="never">
+      <el-form :model="searchForm" inline>
+        <el-form-item label="搜索">
+          <el-input v-model="searchForm.query" placeholder="任务编号 / 订单号 / 车间" clearable style="width: 260px" @keyup.enter="handleSearch" />
+        </el-form-item>
+        <el-form-item>
+          <el-button type="primary" @click="handleSearch">搜索</el-button>
+          <el-button @click="handleReset">重置</el-button>
+        </el-form-item>
+      </el-form>
+    </el-card>
+
     <el-row :gutter="16" class="content-row">
       <el-col :xs="24" :xl="16">
         <el-card class="panel-card" shadow="never">
           <template #header>
             <div class="panel-header">
               <span>生产任务总表</span>
-              <el-tag type="info" effect="plain">{{ visibleScheduleTasks.length }} 项任务</el-tag>
+              <el-tag type="info" effect="plain">{{ filteredScheduleTasks.length }} 项任务</el-tag>
             </div>
           </template>
-          <el-table :data="visibleScheduleTasks" row-key="taskNo" border stripe height="500" empty-text="暂无生产任务">
+          <el-table :data="paginatedScheduleTasks" row-key="taskNo" border stripe height="500" empty-text="暂无生产任务">
             <el-table-column prop="taskNo" label="任务编号" min-width="260" show-overflow-tooltip>
               <template #default="{ row }">
                 <div class="task-no-cell" :style="{ paddingLeft: `${row.__depth * 24}px` }">
@@ -52,6 +64,9 @@
               </template>
             </el-table-column>
           </el-table>
+          <div class="pagination-wrapper">
+            <el-pagination v-model:current-page="currentPage" v-model:page-size="pageSize" :page-sizes="[10, 20, 30, 50]" :total="filteredScheduleTasks.length" layout="total, sizes, prev, pager, next, jumper" background @size-change="currentPage = 1" />
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -121,6 +136,10 @@ import useCommonFunction from '../hooks/useCommonFunction'
 const router = useRouter()
 const store = useOrderStore()
 const scheduleTasks = computed(() => store.scheduleTasks)
+const searchForm = reactive({ query: '' })
+const appliedFilters = reactive({ query: '' })
+const currentPage = ref(1)
+const pageSize = ref(20)
 const expandedTaskNos = reactive(new Set())
 const editDialogVisible = ref(false)
 const taskStatuses = ['待排产', '已排产', '生产中', '已完工', '已质检']
@@ -132,7 +151,36 @@ const visibleScheduleTasks = computed(() => {
   return rows
 })
 
+const filteredScheduleTasks = computed(() => {
+  let list = visibleScheduleTasks.value
+  if (appliedFilters.query) {
+    const q = appliedFilters.query.toLowerCase()
+    list = list.filter(task =>
+      String(task.taskNo || '').toLowerCase().includes(q) ||
+      String(task.orderNo || '').toLowerCase().includes(q) ||
+      String(task.workCenter || '').toLowerCase().includes(q)
+    )
+  }
+  return list
+})
+
+const paginatedScheduleTasks = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value
+  return filteredScheduleTasks.value.slice(start, start + pageSize.value)
+})
+
 const editForm = reactive(initialEditForm())
+
+function handleSearch() {
+  Object.assign(appliedFilters, searchForm)
+  currentPage.value = 1
+}
+
+function handleReset() {
+  Object.assign(searchForm, { query: '' })
+  Object.assign(appliedFilters, searchForm)
+  currentPage.value = 1
+}
 
 function appendVisibleTask(rows, task, depth) {
   rows.push({ ...task, __depth: depth })
@@ -259,9 +307,11 @@ function goToTask(taskNo,boolVal) {
 
 <style scoped>
 .schedule-page { padding: 20px; }
-.content-row { align-items: flex-start; margin-bottom: 16px; }
+.search-card { margin-bottom: 16px; }
+.search-card :deep(.el-card__body) { padding: 16px 20px 0; }
 .panel-card { margin-bottom: 16px; border-radius: 6px; border-color: #e4e7ed; }
 .panel-header { display: flex; align-items: center; justify-content: space-between; font-weight: 700; color: #303133; }
+.pagination-wrapper { margin-top: 16px; display: flex; justify-content: flex-end; }
 .section-title { font-weight: 700; color: #303133; margin: 12px 0 8px; }
 .add-material-btn { margin-top: 10px; }
 .task-no-cell { display: inline-flex; align-items: baseline; min-width: 0; }

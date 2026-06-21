@@ -1,9 +1,9 @@
     <script setup>
-    import { ref, computed, onMounted } from 'vue'
+    import { ref, reactive, computed, onMounted } from 'vue'
     import { useRoute, useRouter } from 'vue-router'
     import { ElMessage, ElMessageBox } from 'element-plus'
     import { ArrowLeft } from '@element-plus/icons-vue'
-    import { useOrderStore, orderStatuses } from '../store/order'
+    import { useOrderStore, orderStatuses, customerLevels, salespersons, productNames, specifications, units } from '../store/order'
 
     const route = useRoute()
     const router = useRouter()
@@ -11,6 +11,24 @@
 
     const order = ref(null)
     const activeTab = ref('info')
+    const editMode = ref(route.params.editMode === 'true')
+    const editForm = reactive(initialEditForm())
+
+    function initialEditForm() {
+      return {
+        customerLevel: 'C级',
+        salesperson: '',
+        productName: '',
+        specification: '',
+        unitPrice: 0,
+        quantity: 1,
+        unit: '个',
+        orderDate: '',
+        deliveryDate: '',
+        isUrgent: false,
+        notes: ''
+      }
+    }
 
     // ========== Formatting helpers ==========
 
@@ -226,6 +244,7 @@
       const found = orderNo ? store.getOrderByNo(decodeURIComponent(orderNo)) : store.getOrderById(id)
       if (found) {
         order.value = found
+        if (editMode.value) resetEditForm()
       } else {
         ElMessage.error('订单不存在')
       }
@@ -263,7 +282,41 @@
     }
 
     const handleEdit = () => {
-      ElMessage.info('请返回列表页进行修改操作')
+      resetEditForm()
+      editMode.value = true
+    }
+
+    const resetEditForm = () => {
+      if (!order.value) return
+      Object.assign(editForm, initialEditForm(), {
+        customerLevel: order.value.customerLevel,
+        salesperson: order.value.salesperson,
+        productName: order.value.productName,
+        specification: order.value.specification,
+        unitPrice: order.value.unitPrice,
+        quantity: order.value.quantity,
+        unit: order.value.unit,
+        orderDate: order.value.orderDate,
+        deliveryDate: order.value.deliveryDate || '',
+        isUrgent: order.value.isUrgent || false,
+        notes: order.value.notes || ''
+      })
+    }
+
+    const handleCancelEdit = () => {
+      editMode.value = false
+    }
+
+    const handleSaveOrder = () => {
+      if (!order.value) return
+      const ok = store.updateOrder(order.value.id, { ...editForm })
+      if (ok) {
+        ElMessage.success('订单修改成功')
+        editMode.value = false
+        loadOrder()
+      } else {
+        ElMessage.error('只能修改草稿或已退回的订单')
+      }
     }
 
     const handleDelete = async () => {
@@ -402,7 +455,11 @@
                 {{ urgentText }}
               </el-tag>
             </div>
-            <div class="header-right" v-if="visibleActions.length > 0">
+            <div class="header-right" v-if="editMode">
+              <el-button type="primary" @click="handleSaveOrder">保存</el-button>
+              <el-button @click="handleCancelEdit">取消</el-button>
+            </div>
+            <div class="header-right" v-else-if="visibleActions.length > 0">
               <el-button v-for="action in visibleActions" :key="action.key" :type="action.type || 'default'"
                 @click="handleAction(action.key)" size="default">
                 {{ action.label }}
@@ -418,7 +475,31 @@
             <!-- =================== Tab 1: 订单信息 =================== -->
             <el-tab-pane label="订单信息" name="info">
               <div class="tab-content">
-                <el-descriptions :column="2" border size="default">
+                <el-form v-if="editMode" :model="editForm" label-width="100px" label-position="right">
+                  <el-row :gutter="20">
+                    <el-col :span="12"><el-form-item label="客户等级"><el-select v-model="editForm.customerLevel" style="width: 100%"><el-option v-for="level in customerLevels" :key="level" :label="level" :value="level" /></el-select></el-form-item></el-col>
+                    <el-col :span="12"><el-form-item label="销售员"><el-select v-model="editForm.salesperson" style="width: 100%"><el-option v-for="sp in salespersons" :key="sp" :label="sp" :value="sp" /></el-select></el-form-item></el-col>
+                  </el-row>
+                  <el-row :gutter="20">
+                    <el-col :span="12"><el-form-item label="品名"><el-select v-model="editForm.productName" filterable style="width: 100%"><el-option v-for="pn in productNames" :key="pn" :label="pn" :value="pn" /></el-select></el-form-item></el-col>
+                    <el-col :span="12"><el-form-item label="规格"><el-select v-model="editForm.specification" style="width: 100%"><el-option v-for="spec in specifications" :key="spec" :label="spec" :value="spec" /></el-select></el-form-item></el-col>
+                  </el-row>
+                  <el-row :gutter="20">
+                    <el-col :span="8"><el-form-item label="单价"><el-input-number v-model="editForm.unitPrice" :min="0.01" :precision="2" controls-position="right" style="width: 100%" /></el-form-item></el-col>
+                    <el-col :span="8"><el-form-item label="数量"><el-input-number v-model="editForm.quantity" :min="1" controls-position="right" style="width: 100%" /></el-form-item></el-col>
+                    <el-col :span="8"><el-form-item label="单位"><el-select v-model="editForm.unit" style="width: 100%"><el-option v-for="u in units" :key="u" :label="u" :value="u" /></el-select></el-form-item></el-col>
+                  </el-row>
+                  <el-row :gutter="20">
+                    <el-col :span="12"><el-form-item label="开单日期"><el-date-picker v-model="editForm.orderDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item></el-col>
+                    <el-col :span="12"><el-form-item label="交货日期"><el-date-picker v-model="editForm.deliveryDate" type="date" value-format="YYYY-MM-DD" style="width: 100%" /></el-form-item></el-col>
+                  </el-row>
+                  <el-row :gutter="20">
+                    <el-col :span="12"><el-form-item label="是否加急"><el-switch v-model="editForm.isUrgent" /></el-form-item></el-col>
+                    <el-col :span="12"><el-form-item label="金额"><el-input-number :model-value="Number(editForm.unitPrice || 0) * Number(editForm.quantity || 0)" disabled controls-position="right" style="width: 100%" /></el-form-item></el-col>
+                  </el-row>
+                  <el-form-item label="备注"><el-input v-model="editForm.notes" type="textarea" :rows="3" :maxlength="200" show-word-limit /></el-form-item>
+                </el-form>
+                <el-descriptions v-else :column="2" border size="default">
                   <el-descriptions-item label="订单号" label-class-name="desc-label">
                     {{ order.orderNo }}
                   </el-descriptions-item>

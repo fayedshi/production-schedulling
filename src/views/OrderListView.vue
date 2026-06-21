@@ -88,7 +88,7 @@
               <el-button link type="primary" size="small" @click="goToDetail(row.orderNo)">详情</el-button>
               <template v-if="row.status === 'draft'">
                 <el-button link type="success" size="small" @click="handleSubmit(row)">提交</el-button>
-                <el-button link type="warning" size="small" @click="openEditDialog(row)">修改</el-button>
+                <el-button link type="warning" size="small" @click="goToDetail(row.orderNo, 'true')">修改</el-button>
                 <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
               </template>
               <template v-else-if="row.status === 'submitted'">
@@ -109,7 +109,7 @@
                 <el-button link type="danger" size="small" @click="handleCancel(row)">取消</el-button>
               </template>
               <template v-else-if="row.status === 'returned'">
-                <el-button link type="warning" size="small" @click="openEditDialog(row)">修改</el-button>
+                <el-button link type="warning" size="small" @click="goToDetail(row.orderNo, 'true')">修改</el-button>
                 <el-button link type="danger" size="small" @click="handleDelete(row)">删除</el-button>
               </template>
               <template v-else-if="row.status === 'cancelled'">
@@ -287,8 +287,8 @@ const paginatedOrders = computed(() => {
 })
 
 // ========== Navigation ==========
-function goToDetail(orderNo) {
-  router.push(`/orders/${encodeURIComponent(orderNo)}`)
+function goToDetail(orderNo, isEdit = 'false') {
+  router.push(`/orders/${encodeURIComponent(orderNo)}/${isEdit}`)
 }
 
 // ========== Customer Level Tag Type ==========
