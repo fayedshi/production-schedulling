@@ -5,7 +5,7 @@
         <div class="brand-block">
           <div class="brand-mark">排</div>
           <div>
-            <div class="brand-title">生产任务总表</div>
+            <div class="brand-title">生产排程系统</div>
             <div class="brand-subtitle">Scheduling Center</div>
           </div>
         </div>
