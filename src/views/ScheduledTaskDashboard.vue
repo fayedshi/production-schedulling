@@ -24,7 +24,7 @@
           <el-table :data="paginatedScheduleTasks" row-key="taskNo" border stripe height="500" empty-text="暂无生产任务">
             <el-table-column prop="taskNo" label="任务编号" min-width="260" show-overflow-tooltip>
               <template #default="{ row }">
-                <div class="task-no-cell" :style="{ paddingLeft: `${row.__depth * 24}px` }">
+                <div class="task-no-cell" :style="{ paddingLeft: `${row.__depth * 12}px` }">
                   <el-button v-if="row.subTasks?.length" class="expand-button" text @click="toggleTask(row.taskNo)">
                     {{ expandedTaskNos.has(row.taskNo) ? '-' : '+' }}
                   </el-button>
@@ -315,9 +315,12 @@ function goToTask(taskNo,boolVal) {
 .section-title { font-weight: 700; color: #303133; margin: 12px 0 8px; }
 .add-material-btn { margin-top: 10px; }
 .task-no-cell { display: inline-flex; align-items: baseline; min-width: 0; }
-.expand-button { width: 14px; height: 20px; color:red; min-height: 20px; padding: 0; margin-right: 1px; font-size: 14px; font-weight: 700; vertical-align: baseline; }
+.expand-button { width: 14px; height: 20px; color:red; min-height: 20px; padding: 0;
+   margin-right: 1px; font-size: 14px; font-weight: 700; vertical-align: baseline; 
+   font-weight: 1;
+}
 .expand-placeholder { width: 15px; flex: 0 0 15px; }
-.task-no-button { padding: 0; font-size: 14px; vertical-align: baseline; }
+.task-no-button { padding: 0; font-size: 14px; vertical-align: baseline; margin-left: 0px;}
 .task-inline-mark { margin-left: 4px; color: red; font-size: 7px; line-height: 1; vertical-align: baseline; }
 @media (max-width: 900px) {
   .page-header { align-items: flex-start; flex-direction: column; }
